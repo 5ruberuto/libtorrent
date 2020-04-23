@@ -404,7 +404,7 @@ bool is_downloading_state(int const st)
 				trees.clear();
 				trees.reserve(p.merkle_trees.size());
 				for (auto const& t : p.merkle_trees)
-					trees.emplace_back(t.begin(), t.end());
+					trees.emplace_back(t);
 			}
 
 			if (!p.verified_leaf_hashes.empty())
@@ -6804,7 +6804,8 @@ namespace {
 			ret.merkle_trees.clear();
 			ret.merkle_trees.reserve(m_torrent_file->merkle_trees().size());
 			for (auto const& t : m_torrent_file->merkle_trees())
-				ret.merkle_trees.emplace_back(t.begin(), t.end());
+				ret.merkle_trees.push_back(t.build_vector());
+
 			if (has_hash_picker())
 			{
 				auto const& leafs = get_hash_picker().verified_leafs();
