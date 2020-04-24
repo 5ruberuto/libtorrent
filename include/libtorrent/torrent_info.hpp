@@ -584,8 +584,9 @@ TORRENT_VERSION_NAMESPACE_3
 		boost::shared_array<char> metadata() const
 		{ return m_info_section; }
 
-		aux::vector<aux::merkle_tree, file_index_t>& merkle_trees();
-		aux::merkle_tree& file_merkle_tree(file_index_t file);
+		// internal
+		aux::vector<aux::merkle_tree, file_index_t>& internal_merkle_trees();
+		void internal_load_merkle_trees(std::vector<std::vector<sha256_hash>> const& t);
 
 		// internal
 		void internal_set_creator(string_view);

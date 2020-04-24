@@ -83,7 +83,8 @@ namespace {
 aux::merkle_tree build_tree(int const size)
 {
 	int const num_leafs = merkle_num_leafs(size);
-	aux::merkle_tree full_tree(merkle_num_nodes(num_leafs));
+	sha256_hash dummy;
+	aux::merkle_tree full_tree(size, dummy.data());
 
 	for (int i = 0; i < size; i++)
 	{
@@ -175,6 +176,15 @@ TORRENT_TEST(pick_piece_layer)
 }
 #endif
 
+namespace {
+sha256_hash from_hex(span<char const> str)
+{
+	sha256_hash ret;
+	aux::from_hex(str, ret.data());
+	return ret;
+}
+}
+
 TORRENT_TEST(reject_piece_request)
 {
 	file_storage fs;
@@ -183,8 +193,8 @@ TORRENT_TEST(reject_piece_request)
 	fs.add_file("test/tmp1", 4 * 512 * 16 * 1024);
 
 	aux::vector<aux::merkle_tree, file_index_t> trees;
-	trees.push_back(aux::merkle_tree(merkle_num_nodes(merkle_num_leafs(4 * 512))));
-	aux::from_hex("0000000000000000000000000000000000000000000000000000000000000001", trees.back()[0].data());
+	auto root = from_hex("0000000000000000000000000000000000000000000000000000000000000001");
+	trees.emplace_back(4 * 512, root.data());
 
 	hash_picker picker(fs, trees);
 
@@ -205,7 +215,8 @@ TORRENT_TEST(add_leaf_hashes)
 	fs.add_file("test/tmp1", 4 * 512 * 16 * 1024);
 
 	aux::vector<aux::merkle_tree, file_index_t> trees;
-	trees.emplace_back(merkle_num_nodes(merkle_num_leafs(4 * 512)));
+	sha256_hash root;
+	trees.emplace_back(4 * 512, root.data());
 
 	aux::merkle_tree const full_tree = build_tree(4 * 512);
 	trees.front()[0] = full_tree[0];
@@ -253,7 +264,8 @@ TORRENT_TEST(add_piece_hashes)
 	fs.add_file("test/tmp1", 4 * 1024 * 16 * 1024);
 
 	aux::vector<aux::merkle_tree, file_index_t> trees;
-	trees.push_back(aux::merkle_tree(merkle_num_nodes(merkle_num_leafs(4 * 1024))));
+	sha256_hash root;
+	trees.emplace_back(4 * 1024, root.data());
 
 	aux::merkle_tree const full_tree = build_tree(4 * 1024);
 	trees.front()[0] = full_tree[0];
@@ -286,7 +298,8 @@ TORRENT_TEST(add_bad_hashes)
 	fs.add_file("test/tmp1", 4 * 512 * 16 * 1024);
 
 	aux::vector<aux::merkle_tree, file_index_t> trees;
-	trees.push_back(aux::merkle_tree(merkle_num_nodes(merkle_num_leafs(4 * 512))));
+	sha256_hash root;
+	trees.emplace_back(4 * 512, root.data());
 
 	aux::merkle_tree const full_tree = build_tree(4 * 512);
 	trees.front()[0] = full_tree[0];
@@ -336,11 +349,10 @@ TORRENT_TEST(bad_block_hash)
 
 	fs.add_file("test/tmp1", 4 * 512 * 16 * 1024);
 
-	aux::vector<aux::merkle_tree, file_index_t> trees;
-	trees.push_back(aux::merkle_tree(merkle_num_nodes(merkle_num_leafs(4 * 512))));
-
 	aux::merkle_tree const full_tree = build_tree(4 * 512);
-	trees.front()[0] = full_tree[0];
+
+	aux::vector<aux::merkle_tree, file_index_t> trees;
+	trees.emplace_back(4 * 512, full_tree[0].data());
 
 	aux::from_hex("0000000000000000000000000000000000000000000000000000000000000001"
 		, trees.front()[trees.front().end_index() - merkle_num_leafs(4 * 512) + 1].data());
@@ -375,7 +387,8 @@ TORRENT_TEST(set_block_hash)
 	fs.add_file("test/tmp1", 4 * 512 * 16 * 1024);
 
 	aux::vector<aux::merkle_tree, file_index_t> trees;
-	trees.push_back(aux::merkle_tree(merkle_num_nodes(merkle_num_leafs(4 * 512))));
+	sha256_hash root;
+	trees.emplace_back(4 * 512, root.data());
 
 	aux::merkle_tree const full_tree = build_tree(4 * 512);
 	trees.front() = full_tree;
@@ -416,7 +429,8 @@ TORRENT_TEST(pass_piece)
 	fs.add_file("test/tmp1", 4 * 512 * 16 * 1024);
 
 	aux::vector<aux::merkle_tree, file_index_t> trees;
-	trees.push_back(aux::merkle_tree(merkle_num_nodes(merkle_num_leafs(4 * 512))));
+	sha256_hash root;
+	trees.emplace_back(4 * 512, root.data());
 
 	aux::merkle_tree const full_tree = build_tree(4 * 512);
 	trees.front()[0] = full_tree[0];
@@ -454,8 +468,8 @@ TORRENT_TEST(only_pick_have_pieces)
 	fs.add_file("test/tmp1", 4 * 512 * 16 * 1024);
 
 	aux::vector<aux::merkle_tree, file_index_t> trees;
-	trees.push_back(aux::merkle_tree(merkle_num_nodes(merkle_num_leafs(4 * 512))));
-	aux::from_hex("0000000000000000000000000000000000000000000000000000000000000001", trees.back()[0].data());
+	sha256_hash root = from_hex("0000000000000000000000000000000000000000000000000000000000000001");
+	trees.emplace_back(4 * 512, root.data());
 
 	hash_picker picker(fs, trees);
 

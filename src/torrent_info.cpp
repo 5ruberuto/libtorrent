@@ -1199,41 +1199,21 @@ namespace {
 		swap(m_flags, ti.m_flags);
 	}
 
-	aux::vector<aux::merkle_tree, file_index_t>& torrent_info::merkle_trees()
+	aux::vector<aux::merkle_tree, file_index_t>& torrent_info::internal_merkle_trees()
 	{
-		TORRENT_ASSERT(m_merkle_trees.end_index() <= orig_files().end_file());
-		if (m_merkle_trees.empty())
-			m_merkle_trees.resize(orig_files().num_files());
-
-		for (file_index_t i{ 0 }; i < m_merkle_trees.end_index(); ++i)
-		{
-			if (orig_files().pad_file_at(i)) continue;
-			auto& f = m_merkle_trees[i];
-			if (f.empty() && orig_files().file_size(i) > 0)
-			{
-				auto const leafs = merkle_num_leafs(orig_files().file_num_blocks(i));
-				f.resize(merkle_num_nodes(leafs));
-				f[0] = orig_files().root(i);
-			}
-		}
-
 		return m_merkle_trees;
 	}
 
-	aux::merkle_tree& torrent_info::file_merkle_tree(file_index_t const file)
+	void torrent_info::internal_load_merkle_trees(std::vector<std::vector<sha256_hash>> const& trees_import)
 	{
-		TORRENT_ASSERT(m_merkle_trees.end_index() <= orig_files().end_file());
-		if (m_merkle_trees.empty())
-			m_merkle_trees.resize(orig_files().num_files());
-
-		if (m_merkle_trees[file].empty() && orig_files().file_size(file) > 0)
+		for (file_index_t i{0}; i < orig_files().end_file(); ++i)
 		{
-			auto const leafs = merkle_num_leafs(orig_files().file_num_blocks(file));
-			m_merkle_trees[file].resize(merkle_num_nodes(leafs));
-			m_merkle_trees[file][0] = orig_files().root(file);
-		}
+			if (orig_files().pad_file_at(i) || orig_files().file_size(i) == 0)
+				continue;
 
-		return m_merkle_trees[file];
+			if (trees_import.size() <= std::size_t(static_cast<int>(i))) break;
+			m_merkle_trees[i].load_tree(trees_import[std::size_t(static_cast<int>(i))]);
+		}
 	}
 
 	string_view torrent_info::ssl_cert() const
@@ -1518,6 +1498,19 @@ namespace {
 			TORRENT_ASSERT(m_piece_hashes < m_info_section_size);
 		}
 
+		// set up the merkle_trees and initialize the roots
+		if (m_info_hash.has_v2())
+		{
+			m_merkle_trees.reserve(files.num_files());
+			for (file_index_t i{0}; i < files.end_file(); ++i)
+			{
+				if (files.pad_file_at(i) || files.file_size(i) == 0)
+					m_merkle_trees.emplace_back();
+				else
+					m_merkle_trees.emplace_back(files.file_num_blocks(i), files.root_ptr(i));
+			}
+		}
+
 		m_flags |= (info.dict_find_int_value("private", 0) != 0)
 			? private_torrent : torrent_info_flags_t{};
 
@@ -1598,10 +1591,7 @@ namespace {
 			}
 
 			int const num_pieces = orig_files().file_num_pieces(i);
-			int const num_blocks = orig_files().file_num_blocks(i);
 			int const piece_layer_size = merkle_num_leafs(num_pieces);
-			int const num_leafs = merkle_num_leafs(num_blocks);
-			int const num_nodes = merkle_num_nodes(num_leafs);
 			int const first_piece_node = merkle_num_nodes(piece_layer_size) - piece_layer_size;
 
 			if (ptrdiff_t(piece_layer->second.size()) != num_pieces * sha256_hash::size())
@@ -1610,7 +1600,7 @@ namespace {
 				return false;
 			}
 
-			tree.resize(num_nodes);
+			TORRENT_ASSERT(int(tree.size()) == merkle_num_nodes(merkle_num_leafs(orig_files().file_num_blocks(i))));
 			sha256_hash const pad_hash = merkle_root(std::vector<sha256_hash>(
 				static_cast<std::size_t>(orig_files().piece_length()) / default_block_size));
 
