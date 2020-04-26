@@ -57,73 +57,64 @@ struct merkle_tree
 {
 	merkle_tree() = default;
 	merkle_tree(int const num_blocks, char const* root)
-		: m_full_tree(merkle_num_nodes(merkle_num_leafs(num_blocks)))
+		: m_tree(merkle_num_nodes(merkle_num_leafs(num_blocks)))
 	{
-		m_full_tree[0] = sha256_hash(root);
+		m_tree[0] = sha256_hash(root);
 	}
-	merkle_tree(std::vector<sha256_hash> const& tree) : m_full_tree(tree.begin(), tree.end()) {}
 
-	sha256_hash root() const { return m_full_tree[0]; }
+	sha256_hash root() const { return m_tree[0]; }
 
 	void load_tree(std::vector<sha256_hash> const& t)
 	{
 		if (t.empty()) return;
-		if (m_full_tree[0] != t[0]) return;
-		if (m_full_tree.size() != t.size()) return;
+		if (m_tree.empty()) return;
+		if (m_tree[0] != t[0]) return;
+		if (m_tree.size() != t.size()) return;
 
-		m_full_tree.assign(t.begin(), t.end());
+		m_tree.assign(t.begin(), t.end());
 	}
 
-	int end_index() const { return int(m_full_tree.size()); }
+	int end_index() const { return int(m_tree.size()); }
 	span<sha256_hash const> leafs() const
 	{
 		// given the full size of the tree, the second half of the nodes are
 		// leaves, rounded up.
-		auto const num_leafs = (m_full_tree.end_index() + 1) / 2;
-		auto const leafs_start = m_full_tree.end_index() - num_leafs;
-		return {&m_full_tree[leafs_start], num_leafs};
+		auto const num_leafs = (m_tree.end_index() + 1) / 2;
+		auto const leafs_start = m_tree.end_index() - num_leafs;
+		return {&m_tree[leafs_start], num_leafs};
 	}
 
-	std::size_t size() const { return m_full_tree.size(); }
-	bool empty() const { return m_full_tree.empty(); }
+	std::size_t size() const { return m_tree.size(); }
+	bool empty() const { return m_tree.empty(); }
 
 	// TODO: all functions that mutate the tree should be members
-	sha256_hash& operator[](int const idx) { return m_full_tree[idx]; }
-	sha256_hash const& operator[](int const idx) const { return m_full_tree[idx]; }
+	sha256_hash& operator[](int const idx) { return m_tree[idx]; }
+	sha256_hash const& operator[](int const idx) const { return m_tree[idx]; }
 
 	std::vector<sha256_hash> build_vector() const
 	{
-		std::vector<sha256_hash> ret(m_full_tree.begin(), m_full_tree.end());
+		std::vector<sha256_hash> ret(m_tree.begin(), m_tree.end());
 		return ret;
 	}
 
 	// TODO: maybe these should be constructors
 	void fill(int const piece_layer_size)
 	{
-		merkle_fill_tree(m_full_tree, piece_layer_size);
+		merkle_fill_tree(m_tree, piece_layer_size);
 	}
 
 	void fill(int const piece_layer_size, int const level_start)
 	{
-		merkle_fill_tree(m_full_tree, piece_layer_size, level_start);
+		merkle_fill_tree(m_tree, piece_layer_size, level_start);
 	}
 
 	void clear(int num_leafs, int level_start)
 	{
-		merkle_clear_tree(m_full_tree, num_leafs, level_start);
+		merkle_clear_tree(m_tree, num_leafs, level_start);
 	}
 
 private:
-	// For each file, this is the offset into the info-section where the sha256
-	// file root is stored.
-//	char const* m_root_hash;
-
-//	aux::vector<sha256_hash> m_piece_layer;
-
-	aux::vector<sha256_hash> m_full_tree;
-
-	// aux::vector<sha256_hash> m_nodes_above_pieces;
-	// aux::vector<sha256_hash> m_nodes_below_pieces;
+	aux::vector<sha256_hash> m_tree;
 };
 
 }
